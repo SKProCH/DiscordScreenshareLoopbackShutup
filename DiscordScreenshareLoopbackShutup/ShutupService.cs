@@ -4,21 +4,19 @@ using System.Diagnostics;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using System.Threading;
 using DiscordScreenshareLoopbackShutup.Models;
 using NAudio.CoreAudioApi;
+using NAudio.CoreAudioApi.Interfaces;
 
 namespace DiscordScreenshareLoopbackShutup;
 
 public class ShutupService
 {
-    private string _discordOutputDeviceId = string.Empty;
-    private string _defaultOutputDeviceId = string.Empty;
     private readonly AudioDeviceService _audioDeviceService;
     private readonly Subject<IReadOnlyList<AudioDeviceShutupInformation>> _audioDevicesStatuses = new();
+    private string _defaultOutputDeviceId = string.Empty;
     private IDisposable? _deviceEventsDisposable;
-
-    public IObservable<IReadOnlyList<AudioDeviceShutupInformation>> AudioDevicesStatuses => _audioDevicesStatuses;
+    private string _discordOutputDeviceId = string.Empty;
 
     public ShutupService()
     {
@@ -37,12 +35,15 @@ public class ShutupService
         SubscribeToDevices();
     }
 
+    public IObservable<IReadOnlyList<AudioDeviceShutupInformation>> AudioDevicesStatuses => _audioDevicesStatuses;
+
     private void SubscribeToDevices()
     {
         _deviceEventsDisposable?.Dispose();
         _deviceEventsDisposable = _audioDeviceService.DeviceEnumerator
-            .EnumerateAudioEndPoints(DataFlow.Render, DeviceState.All)
-            .Select(device => Observable.FromEvent<AudioSessionManager.SessionCreatedDelegate, object>(
+            .EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active | DeviceState.Disabled)
+            .Select(device => Observable.FromEvent<AudioSessionManager.SessionCreatedDelegate, IAudioSessionControl>(
+                h => (_, session) => h(session),
                 action => device.AudioSessionManager.OnSessionCreated += action,
                 action => device.AudioSessionManager.OnSessionCreated -= action))
             .Merge()
