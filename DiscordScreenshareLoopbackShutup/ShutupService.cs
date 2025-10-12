@@ -13,7 +13,7 @@ namespace DiscordScreenshareLoopbackShutup;
 public class ShutupService
 {
     private readonly AudioDeviceService _audioDeviceService;
-    private readonly Subject<IReadOnlyList<AudioDeviceShutupInformation>> _audioDevicesStatuses = new();
+    private readonly ReplaySubject<IReadOnlyList<AudioDeviceShutupInformation>> _audioDevicesStatuses = new();
     private string _defaultOutputDeviceId = string.Empty;
     private IDisposable? _deviceEventsDisposable;
     private string _discordOutputDeviceId = string.Empty;
@@ -31,7 +31,10 @@ public class ShutupService
                 SetDefaultOutputDevice(defaultDeviceId);
             }
         };
-        
+
+        var defaultAudioEndpoint =
+            _audioDeviceService.DeviceEnumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Console);
+        SetDefaultOutputDevice(defaultAudioEndpoint.ID);
         SubscribeToDevices();
     }
 
@@ -48,7 +51,7 @@ public class ShutupService
                 action => device.AudioSessionManager.OnSessionCreated -= action))
             .Merge()
             .Subscribe(_ => EnumerateAndShutup());
-        
+
         EnumerateAndShutup();
     }
 
@@ -83,6 +86,7 @@ public class ShutupService
         {
             var isAllowed = endpoint.ID == _discordOutputDeviceId || endpoint.ID == _defaultOutputDeviceId;
 
+            var discordFound = false;
             var sessions = endpoint.AudioSessionManager.Sessions;
             for (var i = 0; i < sessions.Count; i++)
             {
@@ -98,11 +102,16 @@ public class ShutupService
                 if (name == "Discord")
                 {
                     session.SimpleAudioVolume.Mute = !isAllowed;
-                    return session.SimpleAudioVolume.Mute ? ShutupStatus.Muted : ShutupStatus.ValidOutput;
+                    discordFound = true;
                 }
             }
 
-            return ShutupStatus.None;
+            return (isAllowed, discordFound) switch
+            {
+                (true, _) => ShutupStatus.ValidOutput,
+                (_, true) => ShutupStatus.Muted,
+                (_, false) => ShutupStatus.None
+            };
         }
     }
 }
