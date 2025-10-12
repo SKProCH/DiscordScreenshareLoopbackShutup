@@ -7,9 +7,10 @@ namespace DiscordScreenshareLoopbackShutup.Models.Configurations;
 
 public class Configuration : IConfiguration
 {
-    public string? DiscordOutputDeviceId { get; set; }
-
     public static IConfiguration Current { get; } = Load() ?? new Configuration();
+
+    private static AbsolutePath ConfigurationPath => Program.GetAppropriateProgramFolderPath() / "config.toml";
+    public string? DiscordOutputDeviceId { get; set; }
 
     public static void Edit(Action<Configuration> editAction)
     {
@@ -30,6 +31,4 @@ public class Configuration : IConfiguration
             return null;
         }
     }
-
-    private static AbsolutePath ConfigurationPath => App.GetAppropriateProgramFolderPath() / "config.toml";
 }

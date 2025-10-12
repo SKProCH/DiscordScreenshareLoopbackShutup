@@ -5,20 +5,27 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.ReactiveUI;
 using Avalonia.Threading;
+using DiscordScreenshareLoopbackShutup.Services;
 using Nito.AsyncEx.Interop;
+using TruePath;
 
 namespace DiscordScreenshareLoopbackShutup;
 
 sealed class Program
 {
+    public static string Name => "DiscordScreenshareLoopbackShutup";
+
     // Initialization code. Don't use any Avalonia, third-party APIs or any
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
     // yet and stuff might break.
     [STAThread]
     public static void Main(string[] args)
     {
+        InstallerService.DoInstall();
+
         using var evt = new EventWaitHandle(false, EventResetMode.AutoReset,
             "DiscordScreenshareLoopbackShutup", out var createdNew);
+
         DoIpc(evt, createdNew);
 
         BuildAvaloniaApp()
@@ -54,7 +61,17 @@ sealed class Program
                         classicDesktopStyleApplicationLifetime!.MainWindow!.Show();
                     });
                 }
+                // ReSharper disable once FunctionNeverReturns
             });
         }
+    }
+
+    public static AbsolutePath GetAppropriateProgramFolderPath()
+    {
+#if DEBUG
+        return new AbsolutePath(Environment.ProcessPath!).Parent!.Value;
+#endif
+        return new AbsolutePath(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)) /
+               "DiscordScreenshareLoopbackShutup";
     }
 }
