@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reactive.Linq;
 using Avalonia.Threading;
 using DiscordScreenshareLoopbackShutup.Models;
+using DiscordScreenshareLoopbackShutup.Models.Configurations;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 
@@ -19,9 +20,10 @@ public partial class MainWindowViewModel : ViewModelBase
 
         this.WhenAnyValue(model => model.SelectedDeviceId)
             .WhereNotNull()
-            .Subscribe(information =>
+            .Subscribe(deviceId =>
             {
-                ShutupService.SetDiscordOutputDevice(SelectedDeviceId!);
+                ShutupService.SetDiscordOutputDevice(deviceId);
+                Configuration.Edit(configuration => configuration.DiscordOutputDeviceId = deviceId);
             });
 
         ShutupService.AudioDevicesStatuses
@@ -29,13 +31,12 @@ public partial class MainWindowViewModel : ViewModelBase
             {
                 AudioDeviceStatuses = list;
             });
+
+        SelectedDeviceId = Configuration.Current.DiscordOutputDeviceId;
     }
     
     [Reactive]
     public partial IReadOnlyList<AudioDeviceShutupInformation> AudioDeviceStatuses { get; set; }
-    
-    [Reactive]
-    public partial AudioDeviceShutupInformation? SelectedItem { get; set; }
     
     [Reactive]
     public partial string? SelectedDeviceId { get; set; }
