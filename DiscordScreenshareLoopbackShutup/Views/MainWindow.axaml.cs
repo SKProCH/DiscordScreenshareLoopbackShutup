@@ -1,4 +1,5 @@
 using System;
+using Avalonia;
 using Avalonia.Controls;
 
 namespace DiscordScreenshareLoopbackShutup.Views;
@@ -14,5 +15,17 @@ public partial class MainWindow : Window
     private void OnDeactivated(object? sender, EventArgs e)
     {
         Hide();
+    }
+
+    protected override void OnOpened(EventArgs e)
+    {
+        base.OnOpened(e);
+        Measure(Size.Infinity);
+        var screen = Screens.ScreenFromWindow(this)!;
+        var x = screen.WorkingArea.Width - Bounds.Width;
+        x -= x / 10;
+        var y = screen.WorkingArea.Height - Bounds.Height;
+
+        Position = new PixelPoint((int)x, (int)y);
     }
 }
