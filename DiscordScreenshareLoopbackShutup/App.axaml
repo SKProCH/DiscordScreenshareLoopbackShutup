@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="DiscordScreenshareLoopbackShutup.App"
              xmlns:local="using:DiscordScreenshareLoopbackShutup"
+             xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              RequestedThemeVariant="Default">
              <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
 
@@ -11,5 +12,6 @@
   
     <Application.Styles>
         <FluentTheme />
+        <avalonia:MaterialIconStyles />
     </Application.Styles>
 </Application>
