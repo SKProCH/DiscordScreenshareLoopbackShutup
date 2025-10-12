@@ -25,6 +25,7 @@
         <PackageReference Include="Avalonia.ReactiveUI" Version="11.2.1"/>
         <PackageReference Include="Material.Icons.Avalonia" Version="2.4.1" />
         <PackageReference Include="NAudio" Version="2.2.1" />
+        <PackageReference Include="Nito.AsyncEx" Version="5.1.2"/>
         <PackageReference Include="ReactiveUI.SourceGenerators" Version="2.4.1">
           <PrivateAssets>all</PrivateAssets>
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
