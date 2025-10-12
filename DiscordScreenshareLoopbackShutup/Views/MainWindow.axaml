@@ -27,7 +27,7 @@
 
     <Grid RowDefinitions="Auto *">
         <TextBlock Margin="8" TextAlignment="Center">Select Discord output device:</TextBlock>
-        <ListBox Grid.Row="1" 
+        <ListBox Grid.Row="1"
                  ItemsSource="{Binding AudioDeviceStatuses}"
                  SelectedValue="{Binding SelectedDeviceId}"
                  SelectedValueBinding="{Binding DeviceId}">
@@ -35,8 +35,9 @@
                 <DataTemplate x:DataType="models:AudioDeviceShutupInformation">
                     <Grid ColumnDefinitions="Auto 8 *">
                         <avalonia:MaterialIcon
-                            Kind="{Binding Status, Converter={StaticResource AudioDeviceShutupStatusToMaterialIconConverter}}"/>
-                        <TextBlock Grid.Column="2" Text="{Binding DeviceName}"/>
+                            Kind="{Binding Status, Converter={StaticResource AudioDeviceShutupStatusToMaterialIconConverter}}"
+                            Opacity="{Binding Status, Converter={x:Static ObjectConverters.NotEqual}, ConverterParameter={x:Static models:ShutupStatus.None}}" />
+                        <TextBlock Grid.Column="2" Text="{Binding DeviceName}" />
                     </Grid>
                 </DataTemplate>
             </ListBox.ItemTemplate>
