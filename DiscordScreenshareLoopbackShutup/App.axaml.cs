@@ -19,7 +19,7 @@ public partial class App : Application
         {
             desktop.MainWindow = new MainWindow
             {
-                DataContext = new MainWindowViewModel(new ShutupService()),
+                DataContext = new MainWindowViewModel(Program.ShutupService)
             };
         }
 

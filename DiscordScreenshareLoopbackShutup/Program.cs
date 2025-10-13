@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.ReactiveUI;
 using Avalonia.Threading;
+using DiscordScreenshareLoopbackShutup.Models.Configurations;
 using DiscordScreenshareLoopbackShutup.Services;
 using Nito.AsyncEx.Interop;
 using TruePath;
@@ -14,6 +15,8 @@ namespace DiscordScreenshareLoopbackShutup;
 sealed class Program
 {
     public static string Name => "DiscordScreenshareLoopbackShutup";
+
+    public static ShutupService ShutupService { get; private set; } = null!;
 
     // Initialization code. Don't use any Avalonia, third-party APIs or any
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
@@ -47,23 +50,26 @@ sealed class Program
             evt.Set();
             Environment.Exit(0);
         }
-        else
+
+        ShutupService = new ShutupService();
+        ShutupService.SetDiscordOutputDevice(Configuration.Current.DiscordOutputDeviceId);
+
+        evt.WaitOne();
+
+        Task.Run(async () =>
         {
-            Task.Run(async () =>
+            while (true)
             {
-                while (true)
+                await WaitHandleAsyncFactory.FromWaitHandle(evt);
+                Dispatcher.UIThread.Post(() =>
                 {
-                    await WaitHandleAsyncFactory.FromWaitHandle(evt);
-                    Dispatcher.UIThread.Post(() =>
-                    {
-                        var classicDesktopStyleApplicationLifetime =
-                            (ClassicDesktopStyleApplicationLifetime)Application.Current!.ApplicationLifetime!;
-                        classicDesktopStyleApplicationLifetime!.MainWindow!.Show();
-                    });
-                }
-                // ReSharper disable once FunctionNeverReturns
-            });
-        }
+                    var classicDesktopStyleApplicationLifetime =
+                        (ClassicDesktopStyleApplicationLifetime)Application.Current!.ApplicationLifetime!;
+                    classicDesktopStyleApplicationLifetime!.MainWindow!.Show();
+                });
+            }
+            // ReSharper disable once FunctionNeverReturns
+        });
     }
 
     public static AbsolutePath GetAppropriateProgramFolderPath()

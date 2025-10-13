@@ -16,7 +16,7 @@ public class ShutupService
     private readonly ReplaySubject<IReadOnlyList<AudioDeviceShutupInformation>> _audioDevicesStatuses = new();
     private string _defaultOutputDeviceId = string.Empty;
     private IDisposable? _deviceEventsDisposable;
-    private string _discordOutputDeviceId = string.Empty;
+    private string? _discordOutputDeviceId = string.Empty;
 
     public ShutupService()
     {
@@ -61,7 +61,7 @@ public class ShutupService
         EnumerateAndShutup();
     }
 
-    public void SetDiscordOutputDevice(string deviceId)
+    public void SetDiscordOutputDevice(string? deviceId)
     {
         _discordOutputDeviceId = deviceId;
         EnumerateAndShutup();
