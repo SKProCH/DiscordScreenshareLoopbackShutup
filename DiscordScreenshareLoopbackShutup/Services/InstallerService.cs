@@ -89,6 +89,7 @@ public class InstallerService
                             $Shortcut.TargetPath = '{targetExePath}'
                             $Shortcut.WorkingDirectory = '{targetExePath.Parent}'
                             $Shortcut.Description = 'Discord Screenshare Loopback Shutup'
+                            $Shortcut.IconLocation = '{targetExePath},0'
                             $Shortcut.Save()
                             """;
             var psi = new ProcessStartInfo
