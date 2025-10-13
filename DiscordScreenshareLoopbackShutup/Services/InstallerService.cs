@@ -18,14 +18,14 @@ public class InstallerService
 #endif
 
         var currentExePath = new AbsolutePath(Environment.ProcessPath!);
-        if ((currentExePath.Parent!.Value / ("DiscordScreenshareLoopbackShutup" + ".dll")).Exists())
+        if ((currentExePath.Parent!.Value / (Program.Name + ".dll")).Exists())
             throw new Exception("Did you compiled the Release binary by yourself? " +
                                 "Please, do not. Use 'dotnet publish' to get a single file " +
                                 "or build Debug build to debug");
 
 
         var targetFolder = Program.GetAppropriateProgramFolderPath();
-        var targetExePath = targetFolder / ("DiscordScreenshareLoopbackShutup" + ".exe");
+        var targetExePath = targetFolder / (Program.Name + ".exe");
 
         // Check if we're already in the appropriate folder
         if (currentExePath.Parent == targetFolder) return;
@@ -149,7 +149,7 @@ public class InstallerService
                               <?xml version="1.0" encoding="UTF-16"?>
                               <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
                                 <RegistrationInfo>
-                                  <Description>Starts DiscordScreenshareLoopbackShutup at user logon</Description>
+                                  <Description>Starts {Program.Name} at user logon</Description>
                                 </RegistrationInfo>
                                 <Triggers>
                                   <LogonTrigger>

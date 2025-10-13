@@ -24,7 +24,7 @@ sealed class Program
         InstallerService.DoInstall();
 
         using var evt = new EventWaitHandle(false, EventResetMode.AutoReset,
-            "DiscordScreenshareLoopbackShutup", out var createdNew);
+            Name, out var createdNew);
 
         DoIpc(evt, createdNew);
 
@@ -72,6 +72,6 @@ sealed class Program
         return new AbsolutePath(Environment.ProcessPath!).Parent!.Value;
 #endif
         return new AbsolutePath(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)) /
-               "DiscordScreenshareLoopbackShutup";
+               Name;
     }
 }
