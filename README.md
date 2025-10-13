@@ -4,6 +4,8 @@ Stop Discord from looping its own audio into your stream.
 This tiny Windows utility automatically mutes Discord on all output devices except the ones you allow, so your viewers
 don’t hear Discord twice (or hear themselves) when you share audio.
 
+<img width="414" height="336" alt="image" src="https://github.com/user-attachments/assets/191e29d4-82d9-4961-a379-0d38d82cb3c1" />
+
 ## Use case
 
 E.g. If you use Voicemeeter, route discord audio to one of voicemeeter's virtual outputs, and inside voicemeeter route
