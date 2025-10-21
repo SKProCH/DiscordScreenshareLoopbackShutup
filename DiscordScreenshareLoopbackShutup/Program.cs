@@ -29,7 +29,16 @@ sealed class Program
         using var evt = new EventWaitHandle(false, EventResetMode.AutoReset,
             Name, out var createdNew);
 
-        DoIpc(evt, createdNew);
+        if (!createdNew)
+        {
+            evt.Set();
+            Environment.Exit(0);
+        }
+
+        ShutupService = new ShutupService();
+        ShutupService.SetDiscordOutputDevice(Configuration.Current.DiscordOutputDeviceId);
+
+        WaitIpcSignal(evt);
 
         BuildAvaloniaApp()
             .StartWithClassicDesktopLifetime(args);
@@ -43,17 +52,8 @@ sealed class Program
             .LogToTrace()
             .UseReactiveUI();
 
-    private static void DoIpc(EventWaitHandle evt, bool createdNew)
+    private static void WaitIpcSignal(EventWaitHandle evt)
     {
-        if (!createdNew)
-        {
-            evt.Set();
-            Environment.Exit(0);
-        }
-
-        ShutupService = new ShutupService();
-        ShutupService.SetDiscordOutputDevice(Configuration.Current.DiscordOutputDeviceId);
-
         evt.WaitOne();
 
         Task.Run(async () =>
