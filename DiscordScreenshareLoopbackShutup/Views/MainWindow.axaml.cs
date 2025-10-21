@@ -22,9 +22,9 @@ public partial class MainWindow : Window
         base.OnOpened(e);
         Measure(Size.Infinity);
         var screen = Screens.ScreenFromWindow(this)!;
-        var x = screen.WorkingArea.Width - Bounds.Width;
+        var x = screen.WorkingArea.Width - Bounds.Width * screen.Scaling;
         x -= x / 10;
-        var y = screen.WorkingArea.Height - Bounds.Height;
+        var y = screen.WorkingArea.Height - Bounds.Height * screen.Scaling;
 
         Position = new PixelPoint((int)x, (int)y);
     }
