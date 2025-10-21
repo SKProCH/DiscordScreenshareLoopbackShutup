@@ -11,14 +11,16 @@
 
         <PublishSingleFile>true</PublishSingleFile>
         <SelfContained>true</SelfContained>
-        <DebugType>None</DebugType>
-        <DebugSymbols>False</DebugSymbols>
         <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
         <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-
         <!--Seems like NAOT can't have bundled native libs-->
         <!--<PublishAot>true</PublishAot>-->
         <!--<IsAotCompatible>true</IsAotCompatible>-->
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Configuration)' != 'Debug'">
+        <DebugType>None</DebugType>
+        <DebugSymbols>False</DebugSymbols>
     </PropertyGroup>
 
     <ItemGroup>
