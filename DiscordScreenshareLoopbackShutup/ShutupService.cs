@@ -13,17 +13,17 @@ namespace DiscordScreenshareLoopbackShutup;
 
 public class ShutupService
 {
-    private readonly ILogger<ShutupService> _logger;
     private readonly AudioDeviceService _audioDeviceService;
     private readonly ReplaySubject<IReadOnlyList<AudioDeviceShutupInformation>> _audioDevicesStatuses = new();
+    private readonly ILogger<ShutupService> _logger;
     private string _defaultOutputDeviceId = string.Empty;
     private IDisposable? _deviceEventsDisposable;
     private string? _discordOutputDeviceId = string.Empty;
 
-    public ShutupService(ILogger<ShutupService> logger, ILogger<AudioDeviceService> audioDeviceServiceLogger)
+    public ShutupService(AudioDeviceService audioDeviceService, ILogger<ShutupService> logger)
     {
         _logger = logger;
-        _audioDeviceService = new AudioDeviceService(audioDeviceServiceLogger);
+        _audioDeviceService = audioDeviceService;
         _audioDeviceService.DeviceAdded += _ => SubscribeToDevices();
         _audioDeviceService.DeviceRemoved += _ => SubscribeToDevices();
         _audioDeviceService.PropertyValueChanged += _ => EnumerateAndShutup();

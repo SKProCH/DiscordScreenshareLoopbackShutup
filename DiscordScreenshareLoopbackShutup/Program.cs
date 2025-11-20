@@ -8,10 +8,10 @@ using Avalonia.ReactiveUI;
 using Avalonia.Threading;
 using DiscordScreenshareLoopbackShutup.Models.Configurations;
 using DiscordScreenshareLoopbackShutup.Services;
-using Microsoft.Extensions.Logging;
+using DiscordScreenshareLoopbackShutup.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 using Nito.AsyncEx.Interop;
 using Serilog;
-using Serilog.Extensions.Logging;
 using TruePath;
 
 namespace DiscordScreenshareLoopbackShutup;
@@ -20,9 +20,7 @@ sealed class Program
 {
     public static string Name => "DiscordScreenshareLoopbackShutup";
 
-    public static ShutupService ShutupService { get; private set; } = null!;
-
-    public static ILoggerFactory LoggerFactory { get; private set; } = null!;
+    public static IServiceProvider Services { get; private set; } = null!;
 
     // Initialization code. Don't use any Avalonia, third-party APIs or any
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
@@ -30,7 +28,8 @@ sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        SetupLogging();
+        var configManager = new ConfigurationManager(GetAppropriateProgramFolderPath() / "config.toml");
+        SetupLogging(configManager.Configuration);
         try
         {
             InstallerService.DoInstall();
@@ -45,14 +44,14 @@ sealed class Program
                 Environment.Exit(0);
             }
 
-            ShutupService = new ShutupService(
-                LoggerFactory.CreateLogger<ShutupService>(),
-                LoggerFactory.CreateLogger<AudioDeviceService>()
-            );
-            ShutupService.SetDiscordOutputDevice(Configuration.Current.DiscordOutputDeviceId);
+            Services = ConfigureServices(configManager);
+
+            // Resolve ShutupService to ensure it starts
+            var shutupService = Services.GetRequiredService<ShutupService>();
+            shutupService.SetDiscordOutputDevice(configManager.Configuration.DiscordOutputDeviceId);
 
             WaitIpcSignal(evt);
-            
+
             BuildAvaloniaApp()
                 .StartWithClassicDesktopLifetime(args);
         }
@@ -67,33 +66,24 @@ sealed class Program
         }
     }
 
-    private static void SetupLogging()
+    private static ServiceProvider ConfigureServices(ConfigurationManager configurationManager)
     {
-        var sessionId = Guid.NewGuid().ToString("N").Substring(0, 8);
-        var logFilePath = Configuration.Current.LogPath;
+        var services = new ServiceCollection();
 
-#if DEBUG
-        logFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DiscordScreenshareLoopbackShutup.log");
-#else
-        if (string.IsNullOrWhiteSpace(logFilePath))
-        {
-            logFilePath = Path.Combine(Path.GetTempPath(), "DiscordScreenshareLoopbackShutup.log");
-        }
-#endif
+        // Configuration
+        services.AddSingleton(configurationManager);
 
-        Log.Logger = new LoggerConfiguration()
-            .Enrich.WithProperty("SessionId", sessionId)
-            .WriteTo.Console(
-                outputTemplate:
-                "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] [{SessionId}] {Message:lj}{NewLine}{Exception}")
-            .WriteTo.File(logFilePath, shared: true,
-                outputTemplate:
-                "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] [{SessionId}] {Message:lj}{NewLine}{Exception}")
-            .CreateLogger();
+        // Logging
+        services.AddLogging(loggingBuilder => { loggingBuilder.AddSerilog(dispose: true); });
 
-        LoggerFactory = new SerilogLoggerFactory(Log.Logger);
+        // Services
+        services.AddSingleton<AudioDeviceService>();
+        services.AddSingleton<ShutupService>();
 
-        Log.Logger.Information("Application started");
+        // ViewModels
+        services.AddTransient<MainWindowViewModel>();
+
+        return services.BuildServiceProvider();
     }
 
     // Avalonia configuration, don't remove; also used by visual designer.
@@ -134,5 +124,32 @@ sealed class Program
 #endif
         return new AbsolutePath(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)) /
                Name;
+    }
+
+    private static void SetupLogging(IConfiguration configuration)
+    {
+        var sessionId = Guid.NewGuid().ToString("N").Substring(0, 8);
+        var logFilePath = configuration.LogPath;
+
+#if DEBUG
+        logFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DiscordScreenshareLoopbackShutup.log");
+#else
+        if (string.IsNullOrWhiteSpace(logFilePath))
+        {
+            logFilePath = Path.Combine(Path.GetTempPath(), "DiscordScreenshareLoopbackShutup.log");
+        }
+#endif
+
+        Log.Logger = new LoggerConfiguration()
+            .Enrich.WithProperty("SessionId", sessionId)
+            .WriteTo.Console(
+                outputTemplate:
+                "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] [{SessionId}] {Message:lj}{NewLine}{Exception}")
+            .WriteTo.File(logFilePath, shared: true,
+                outputTemplate:
+                "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] [{SessionId}] {Message:lj}{NewLine}{Exception}")
+            .CreateLogger();
+
+        Log.Logger.Information("Application started");
     }
 }
