@@ -40,15 +40,19 @@ sealed class Program
 
             if (!createdNew)
             {
+                Log.Logger.Information("Found already running process, sending signal and exiting");
                 evt.Set();
                 Environment.Exit(0);
             }
 
-            ShutupService = new ShutupService();
+            ShutupService = new ShutupService(
+                LoggerFactory.CreateLogger<ShutupService>(),
+                LoggerFactory.CreateLogger<AudioDeviceService>()
+            );
             ShutupService.SetDiscordOutputDevice(Configuration.Current.DiscordOutputDeviceId);
 
             WaitIpcSignal(evt);
-
+            
             BuildAvaloniaApp()
                 .StartWithClassicDesktopLifetime(args);
         }
@@ -102,7 +106,9 @@ sealed class Program
 
     private static void WaitIpcSignal(EventWaitHandle evt)
     {
+        Log.Logger.Information("Waiting for IPC signal to initialize UI");
         evt.WaitOne();
+        Log.Logger.Information("IPC signal received, showing window");
 
         Task.Run(async () =>
         {
@@ -113,7 +119,8 @@ sealed class Program
                 {
                     var classicDesktopStyleApplicationLifetime =
                         (ClassicDesktopStyleApplicationLifetime)Application.Current!.ApplicationLifetime!;
-                    classicDesktopStyleApplicationLifetime!.MainWindow!.Show();
+                    Log.Logger.Information("IPC signal received, showing window");
+                    classicDesktopStyleApplicationLifetime.MainWindow!.Show();
                 });
             }
             // ReSharper disable once FunctionNeverReturns

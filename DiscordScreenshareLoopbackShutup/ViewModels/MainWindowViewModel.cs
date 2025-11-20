@@ -5,6 +5,7 @@ using System.Reactive.Linq;
 using Avalonia.Threading;
 using DiscordScreenshareLoopbackShutup.Models;
 using DiscordScreenshareLoopbackShutup.Models.Configurations;
+using Microsoft.Extensions.Logging;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 
@@ -14,7 +15,7 @@ public partial class MainWindowViewModel : ViewModelBase
 {
     public ShutupService ShutupService { get; }
 
-    public MainWindowViewModel(ShutupService shutupService)
+    public MainWindowViewModel(ShutupService shutupService, ILogger<MainWindowViewModel> logger)
     {
         ShutupService = shutupService;
 
@@ -22,6 +23,7 @@ public partial class MainWindowViewModel : ViewModelBase
             .WhereNotNull()
             .Subscribe(deviceId =>
             {
+                logger.LogInformation("User selected device: {DeviceId}", deviceId);
                 ShutupService.SetDiscordOutputDevice(deviceId);
                 Configuration.Edit(configuration => configuration.DiscordOutputDeviceId = deviceId);
             });

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using DiscordScreenshareLoopbackShutup.Models;
+using Microsoft.Extensions.Logging;
 using NAudio.CoreAudioApi;
 using NAudio.CoreAudioApi.Interfaces;
 
@@ -12,15 +13,17 @@ namespace DiscordScreenshareLoopbackShutup;
 
 public class ShutupService
 {
+    private readonly ILogger<ShutupService> _logger;
     private readonly AudioDeviceService _audioDeviceService;
     private readonly ReplaySubject<IReadOnlyList<AudioDeviceShutupInformation>> _audioDevicesStatuses = new();
     private string _defaultOutputDeviceId = string.Empty;
     private IDisposable? _deviceEventsDisposable;
     private string? _discordOutputDeviceId = string.Empty;
 
-    public ShutupService()
+    public ShutupService(ILogger<ShutupService> logger, ILogger<AudioDeviceService> audioDeviceServiceLogger)
     {
-        _audioDeviceService = new AudioDeviceService();
+        _logger = logger;
+        _audioDeviceService = new AudioDeviceService(audioDeviceServiceLogger);
         _audioDeviceService.DeviceAdded += _ => SubscribeToDevices();
         _audioDeviceService.DeviceRemoved += _ => SubscribeToDevices();
         _audioDeviceService.PropertyValueChanged += _ => EnumerateAndShutup();
@@ -42,6 +45,8 @@ public class ShutupService
 
     private void SubscribeToDevices()
     {
+        _logger.LogInformation("Device list changed. Reinitializing devices sessions event listening");
+
         _deviceEventsDisposable?.Dispose();
         _deviceEventsDisposable = _audioDeviceService.DeviceEnumerator
             .EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active | DeviceState.Disabled)
@@ -50,25 +55,38 @@ public class ShutupService
                 action => device.AudioSessionManager.OnSessionCreated += action,
                 action => device.AudioSessionManager.OnSessionCreated -= action))
             .Merge()
-            .Subscribe(_ => EnumerateAndShutup());
+            .Subscribe(OnSessionCreated);
 
+        EnumerateAndShutup();
+    }
+
+    private void OnSessionCreated(IAudioSessionControl _)
+    {
+        _logger.LogInformation("New audio session created, checking for discord");
         EnumerateAndShutup();
     }
 
     private void SetDefaultOutputDevice(string deviceId)
     {
+        var device = _audioDeviceService.DeviceEnumerator.GetDevice(deviceId);
+        _logger.LogInformation("Default output device changed to {DeviceName} ({DeviceId})",
+            device.FriendlyName, deviceId);
         _defaultOutputDeviceId = deviceId;
         EnumerateAndShutup();
     }
 
     public void SetDiscordOutputDevice(string? deviceId)
     {
+        var device = _audioDeviceService.DeviceEnumerator.GetDevice(deviceId);
+        _logger.LogInformation("Discord output device set to {DeviceName} ({DeviceId})",
+            device.FriendlyName, deviceId);
         _discordOutputDeviceId = deviceId;
         EnumerateAndShutup();
     }
 
     private void EnumerateAndShutup()
     {
+        _logger.LogInformation("Enumerating devices, finding discord");
         var endPoints = _audioDeviceService.DeviceEnumerator
             .EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active);
 
@@ -101,7 +119,13 @@ public class ShutupService
                 // ReSharper disable once InvertIf
                 if (name == "Discord")
                 {
-                    session.SimpleAudioVolume.Mute = !isAllowed;
+                    if (session.SimpleAudioVolume.Mute != !isAllowed)
+                    {
+                        _logger.LogInformation("Discord muted on {DeviceName} ({DeviceId})",
+                            endpoint.FriendlyName, endpoint.ID);
+                        session.SimpleAudioVolume.Mute = !isAllowed;
+                    }
+
                     discordFound = true;
                 }
             }
