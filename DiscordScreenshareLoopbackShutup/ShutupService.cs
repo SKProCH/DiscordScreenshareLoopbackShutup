@@ -78,7 +78,7 @@ public class ShutupService
 
     public void SetDiscordOutputDevice(string? deviceId)
     {
-        if (deviceId == _defaultOutputDeviceId) return;
+        if (deviceId == _discordOutputDeviceId) return;
         var device = _audioDeviceService.DeviceEnumerator.GetDevice(deviceId);
         _logger.LogInformation("Discord output device set to {DeviceName} ({DeviceId})",
             device.FriendlyName, deviceId);
@@ -123,8 +123,9 @@ public class ShutupService
                 {
                     if (session.SimpleAudioVolume.Mute != !isAllowed)
                     {
-                        _logger.LogInformation("Discord muted on {DeviceName} ({DeviceId})",
-                            endpoint.FriendlyName, endpoint.ID);
+                        _logger.LogInformation(
+                            "New Discord session detected on {DeviceName} ({DeviceId}), muted: {IsMuted}",
+                            endpoint.FriendlyName, endpoint.ID, !isAllowed);
                         session.SimpleAudioVolume.Mute = !isAllowed;
                     }
 
