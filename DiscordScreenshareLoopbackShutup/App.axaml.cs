@@ -3,6 +3,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using DiscordScreenshareLoopbackShutup.ViewModels;
 using DiscordScreenshareLoopbackShutup.Views;
+using Microsoft.Extensions.Logging;
 
 namespace DiscordScreenshareLoopbackShutup;
 
@@ -19,7 +20,9 @@ public partial class App : Application
         {
             desktop.MainWindow = new MainWindow
             {
-                DataContext = new MainWindowViewModel(Program.ShutupService)
+                DataContext = new MainWindowViewModel(
+                    Program.ShutupService,
+                    Program.LoggerFactory.CreateLogger<MainWindowViewModel>())
             };
         }
 

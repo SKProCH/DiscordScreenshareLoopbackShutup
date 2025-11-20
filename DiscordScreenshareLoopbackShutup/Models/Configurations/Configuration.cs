@@ -11,6 +11,7 @@ public class Configuration : IConfiguration
 
     private static AbsolutePath ConfigurationPath => Program.GetAppropriateProgramFolderPath() / "config.toml";
     public string? DiscordOutputDeviceId { get; set; }
+    public string? LogPath { get; set; }
 
     public static void Edit(Action<Configuration> editAction)
     {

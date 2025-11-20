@@ -3,4 +3,5 @@
 public interface IConfiguration
 {
     string? DiscordOutputDeviceId { get; }
+    string? LogPath { get; }
 }
