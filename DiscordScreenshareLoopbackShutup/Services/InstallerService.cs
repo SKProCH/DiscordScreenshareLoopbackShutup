@@ -207,7 +207,7 @@ public class InstallerService
                                 </Settings>
                                 <Actions Context="Author">
                                   <Exec>
-                                    <Command>{targetExePath}</Command>
+                                    <Command>{targetExePath} --scheduled</Command>
                                     <WorkingDirectory>{targetExePath.Parent!.Value}</WorkingDirectory>
                                   </Exec>
                                 </Actions>
