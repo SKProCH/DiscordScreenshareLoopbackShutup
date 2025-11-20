@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -30,6 +31,9 @@ sealed class Program
     {
         var configManager = new ConfigurationManager(GetAppropriateProgramFolderPath() / "config.toml");
         SetupLogging(configManager.Configuration);
+        Log.Logger.Information("Application started: {Command}",
+            string.Join(" ", args.Prepend(Environment.ProcessPath)));
+
         try
         {
             InstallerService.DoInstall();
@@ -149,7 +153,5 @@ sealed class Program
                 outputTemplate:
                 "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] [{SessionId}] {Message:lj}{NewLine}{Exception}")
             .CreateLogger();
-
-        Log.Logger.Information("Application started");
     }
 }
