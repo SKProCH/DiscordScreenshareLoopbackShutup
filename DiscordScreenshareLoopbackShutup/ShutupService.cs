@@ -68,6 +68,7 @@ public class ShutupService
 
     private void SetDefaultOutputDevice(string deviceId)
     {
+        if (deviceId == _defaultOutputDeviceId) return;
         var device = _audioDeviceService.DeviceEnumerator.GetDevice(deviceId);
         _logger.LogInformation("Default output device changed to {DeviceName} ({DeviceId})",
             device.FriendlyName, deviceId);
@@ -77,6 +78,7 @@ public class ShutupService
 
     public void SetDiscordOutputDevice(string? deviceId)
     {
+        if (deviceId == _defaultOutputDeviceId) return;
         var device = _audioDeviceService.DeviceEnumerator.GetDevice(deviceId);
         _logger.LogInformation("Discord output device set to {DeviceName} ({DeviceId})",
             device.FriendlyName, deviceId);
