@@ -13,17 +13,17 @@ namespace DiscordScreenshareLoopbackShutup;
 
 public class ShutupService
 {
-    private readonly ILogger<ShutupService> _logger;
     private readonly AudioDeviceService _audioDeviceService;
     private readonly ReplaySubject<IReadOnlyList<AudioDeviceShutupInformation>> _audioDevicesStatuses = new();
+    private readonly ILogger<ShutupService> _logger;
     private string _defaultOutputDeviceId = string.Empty;
     private IDisposable? _deviceEventsDisposable;
     private string? _discordOutputDeviceId = string.Empty;
 
-    public ShutupService(ILogger<ShutupService> logger, ILogger<AudioDeviceService> audioDeviceServiceLogger)
+    public ShutupService(AudioDeviceService audioDeviceService, ILogger<ShutupService> logger)
     {
         _logger = logger;
-        _audioDeviceService = new AudioDeviceService(audioDeviceServiceLogger);
+        _audioDeviceService = audioDeviceService;
         _audioDeviceService.DeviceAdded += _ => SubscribeToDevices();
         _audioDeviceService.DeviceRemoved += _ => SubscribeToDevices();
         _audioDeviceService.PropertyValueChanged += _ => EnumerateAndShutup();
@@ -78,7 +78,7 @@ public class ShutupService
 
     public void SetDiscordOutputDevice(string? deviceId)
     {
-        if (deviceId == _defaultOutputDeviceId) return;
+        if (deviceId == _discordOutputDeviceId) return;
         var device = _audioDeviceService.DeviceEnumerator.GetDevice(deviceId);
         _logger.LogInformation("Discord output device set to {DeviceName} ({DeviceId})",
             device.FriendlyName, deviceId);
@@ -123,8 +123,9 @@ public class ShutupService
                 {
                     if (session.SimpleAudioVolume.Mute != !isAllowed)
                     {
-                        _logger.LogInformation("Discord muted on {DeviceName} ({DeviceId})",
-                            endpoint.FriendlyName, endpoint.ID);
+                        _logger.LogInformation(
+                            "New Discord session detected on {DeviceName} ({DeviceId}), muted: {IsMuted}",
+                            endpoint.FriendlyName, endpoint.ID, !isAllowed);
                         session.SimpleAudioVolume.Mute = !isAllowed;
                     }
 
