@@ -76,25 +76,21 @@ public class ShutupService
     public void SetDiscordOutputDevice(string? deviceId)
     {
         if (deviceId == _discordOutputDeviceId) return;
-        if (deviceId is null)
-        {
-            var device = _audioDeviceService.DeviceEnumerator.GetDevice(deviceId);
-            _logger.LogInformation("Discord output device set to {DeviceName} ({DeviceId})",
-                device.FriendlyName, deviceId);
-            _discordOutputDeviceId = deviceId;
-        }
-
+        var device = deviceId != null ? _audioDeviceService.DeviceEnumerator.GetDevice(deviceId) : null;
+        _logger.LogInformation("Discord output device set to {DeviceName} ({DeviceId})",
+            device?.FriendlyName, deviceId);
+        _discordOutputDeviceId = deviceId;
         EnumerateAndShutup();
     }
 
     private void EnumerateAndShutup()
     {
         _logger.LogInformation("Enumerating devices, finding discord");
-        var endPoints = _audioDeviceService.DeviceEnumerator
+        var endpoints = _audioDeviceService.DeviceEnumerator
             .EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active);
 
-        var information = new List<AudioDeviceShutupInformation>(endPoints.Count);
-        foreach (var endpoint in endPoints)
+        var information = new List<AudioDeviceShutupInformation>(endpoints.Count);
+        foreach (var endpoint in endpoints)
         {
             var status = ProcessEndpoint(endpoint);
             information.Add(new AudioDeviceShutupInformation(endpoint.ID, endpoint.FriendlyName, status));
