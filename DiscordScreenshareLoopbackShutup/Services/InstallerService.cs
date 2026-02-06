@@ -23,11 +23,9 @@ public class InstallerService
 
         var currentExePath = new AbsolutePath(Environment.ProcessPath!);
         if ((currentExePath.Parent!.Value / (Program.Name + ".dll")).Exists())
-        {
             throw new Exception("Did you compiled the Release binary by yourself? " +
                                 "Please, do not. Use 'dotnet publish' to get a single file " +
                                 "or build Debug build to debug");
-        }
 
         var targetFolder = Program.GetAppropriateProgramFolderPath();
         var targetExePath = targetFolder / (Program.Name + ".exe");

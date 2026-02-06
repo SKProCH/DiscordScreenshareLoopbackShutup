@@ -12,7 +12,6 @@ public class AudioDeviceShutupStatusToMaterialIconConverter : IValueConverter
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         if (value is ShutupStatus status)
-        {
             return status switch
             {
                 ShutupStatus.None => null,
@@ -20,7 +19,6 @@ public class AudioDeviceShutupStatusToMaterialIconConverter : IValueConverter
                 ShutupStatus.Muted => MaterialIconKind.VolumeMute,
                 _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)
             };
-        }
 
         return BindingOperations.DoNothing;
     }
