@@ -1,15 +1,18 @@
 using System;
 using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 using NAudio.CoreAudioApi;
 
 namespace DiscordScreenshareLoopbackShutup;
 
-internal class AudioDeviceService : NAudio.CoreAudioApi.Interfaces.IMMNotificationClient, IDisposable
+public class AudioDeviceService : NAudio.CoreAudioApi.Interfaces.IMMNotificationClient, IDisposable
 {
+    private readonly ILogger<AudioDeviceService> _logger;
     public MMDeviceEnumerator DeviceEnumerator { get; } = new();
 
-    public AudioDeviceService()
+    public AudioDeviceService(ILogger<AudioDeviceService> logger)
     {
+        _logger = logger;
         DeviceEnumerator.RegisterEndpointNotificationCallback(this);
     }
 
@@ -27,7 +30,7 @@ internal class AudioDeviceService : NAudio.CoreAudioApi.Interfaces.IMMNotificati
     /// <param name="defaultDeviceId"></param>
     public void OnDefaultDeviceChanged(DataFlow dataFlow, Role deviceRole, string defaultDeviceId)
     {
-        Debug.WriteLine($"AudioDeviceChangeNotifier::OnDefaultDeviceChanged - dataFlow: {dataFlow}, deviceRole: {deviceRole}, defaultDeviceId: {defaultDeviceId}");
+        _logger.LogDebug("AudioDeviceChangeNotifier::OnDefaultDeviceChanged - dataFlow: {DataFlow}, deviceRole: {DeviceRole}, defaultDeviceId: {DefaultDeviceId}", dataFlow, deviceRole, defaultDeviceId);
 
         if (DefaultDeviceChanged != null)
             DefaultDeviceChanged(dataFlow, deviceRole, defaultDeviceId);
@@ -45,7 +48,7 @@ internal class AudioDeviceService : NAudio.CoreAudioApi.Interfaces.IMMNotificati
     /// <param name="deviceId"></param>
     public void OnDeviceAdded(string deviceId)
     {
-        Debug.WriteLine($"AudioDeviceChangeNotifier::OnDeviceAdded - deviceId: {deviceId}");
+        _logger.LogDebug("AudioDeviceChangeNotifier::OnDeviceAdded - deviceId: {DeviceId}", deviceId);
 
         if (DeviceAdded != null)
             DeviceAdded(deviceId);
@@ -63,10 +66,10 @@ internal class AudioDeviceService : NAudio.CoreAudioApi.Interfaces.IMMNotificati
     /// <param name="deviceId"></param>
     public void OnDeviceRemoved(string deviceId)
     {
-        Debug.WriteLine($"AudioDeviceChangeNotifier::OnDeviceRemoved - deviceId: {deviceId}");
+        _logger.LogDebug("AudioDeviceChangeNotifier::OnDeviceRemoved - deviceId: {DeviceId}", deviceId);
 
-        if (DeviceAdded != null)
-            DeviceAdded(deviceId);
+        if (DeviceRemoved != null)
+            DeviceRemoved(deviceId);
     }
 
     public delegate void DeviceStateChangedHandler(string deviceId, DeviceState newState);
@@ -82,7 +85,7 @@ internal class AudioDeviceService : NAudio.CoreAudioApi.Interfaces.IMMNotificati
     /// <param name="newState"></param>
     public void OnDeviceStateChanged(string deviceId, DeviceState newState)
     {
-        Debug.WriteLine($"AudioDeviceChangeNotifier::OnDeviceStateChanged - deviceId: {deviceId}, newState: {newState}");
+        _logger.LogDebug("AudioDeviceChangeNotifier::OnDeviceStateChanged - deviceId: {DeviceId}, newState: {NewState}", deviceId, newState);
 
         if (DeviceStateChanged != null)
             DeviceStateChanged(deviceId, newState);
@@ -101,7 +104,7 @@ internal class AudioDeviceService : NAudio.CoreAudioApi.Interfaces.IMMNotificati
     /// <param name="propertyKey"></param>
     public void OnPropertyValueChanged(string deviceId, PropertyKey propertyKey)
     {
-        Debug.WriteLine($"AudioDeviceChangeNotifier::OnPropertyValueChanged - deviceId: {deviceId}, propertyKey: {propertyKey}");
+        _logger.LogDebug("AudioDeviceChangeNotifier::OnPropertyValueChanged - deviceId: {DeviceId}, propertyKey: {PropertyKey}", deviceId, propertyKey);
 
         if (PropertyValueChanged != null)
             PropertyValueChanged(deviceId);

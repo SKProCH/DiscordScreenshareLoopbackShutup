@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using Serilog;
 using TruePath;
 using TruePath.SystemIo;
 
@@ -10,25 +11,35 @@ namespace DiscordScreenshareLoopbackShutup.Services;
 
 public class InstallerService
 {
+    private static readonly ILogger Logger = Log.ForContext<InstallerService>();
+
     public static void DoInstall()
     {
 #if DEBUG
         // Check if we in debug mode
+        Logger.Information("Skipping installation in DEBUG mode");
         return;
 #endif
 
         var currentExePath = new AbsolutePath(Environment.ProcessPath!);
-        if ((currentExePath.Parent!.Value / ("DiscordScreenshareLoopbackShutup" + ".dll")).Exists())
+        if ((currentExePath.Parent!.Value / (Program.Name + ".dll")).Exists())
+        {
             throw new Exception("Did you compiled the Release binary by yourself? " +
                                 "Please, do not. Use 'dotnet publish' to get a single file " +
                                 "or build Debug build to debug");
-
+        }
 
         var targetFolder = Program.GetAppropriateProgramFolderPath();
-        var targetExePath = targetFolder / ("DiscordScreenshareLoopbackShutup" + ".exe");
+        var targetExePath = targetFolder / (Program.Name + ".exe");
 
         // Check if we're already in the appropriate folder
-        if (currentExePath.Parent == targetFolder) return;
+        if (currentExePath.Parent == targetFolder)
+        {
+            Logger.Information("Running from target folder, skipping installation");
+            return;
+        }
+
+        Logger.Information("Starting installation from {CurrentPath} to {TargetFolder}", currentExePath, targetFolder);
 
         // Check if a copy is already running from the target folder
         var currentProcess = Process.GetCurrentProcess();
@@ -39,12 +50,13 @@ public class InstallerService
         foreach (var process in existingProcesses)
             try
             {
+                Logger.Information("Killing existing process {ProcessId}", process.Id);
                 process.Kill();
                 process.WaitForExit(5000);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failed to kill process {process.Id}: {ex.Message}");
+                Logger.Error(ex, "Failed to kill process {ProcessId}", process.Id);
             }
 
         // Wait a bit to ensure file is unlocked
@@ -55,11 +67,12 @@ public class InstallerService
         // Copy current exe to target location
         try
         {
+            Logger.Information("Copying executable to {TargetExePath}", targetExePath);
             currentExePath.Copy(targetExePath, true);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Failed to copy executable: {ex.Message}");
+            Logger.Fatal(ex, "Failed to copy executable");
             throw;
         }
 
@@ -69,6 +82,7 @@ public class InstallerService
         // Create scheduled task for autostart if it doesn't exist
         CreateScheduledTask(targetExePath);
 
+        Logger.Information("Installation completed, starting new process");
         Process.Start(targetExePath.ToString());
         Thread.Sleep(500);
     }
@@ -80,7 +94,13 @@ public class InstallerService
             var shortcutPath = new AbsolutePath(Environment.GetFolderPath(Environment.SpecialFolder.Programs))
                                / "Discord Screenshare Loopback Shutup.lnk";
 
-            if (shortcutPath.Exists()) return;
+            if (shortcutPath.Exists())
+            {
+                Logger.Debug("Start menu shortcut already exists at {ShortcutPath}", shortcutPath);
+                return;
+            }
+
+            Logger.Information("Creating Start menu shortcut at {ShortcutPath}", shortcutPath);
 
             // Use PowerShell to create shortcut
             var psScript = $"""
@@ -106,13 +126,13 @@ public class InstallerService
             process?.WaitForExit();
 
             if (process?.ExitCode == 0)
-                Console.WriteLine($"Created Start menu shortcut: {shortcutPath}");
+                Logger.Information("Created Start menu shortcut");
             else
-                Console.WriteLine($"Failed to create Start menu shortcut. Exit code: {process?.ExitCode}");
+                Logger.Error("Failed to create Start menu shortcut. Exit code: {ExitCode}", process?.ExitCode);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Failed to create Start menu shortcut: {ex.Message}");
+            Logger.Error(ex, "Failed to create Start menu shortcut");
         }
     }
 
@@ -138,10 +158,12 @@ public class InstallerService
                 queryProcess?.WaitForExit();
                 if (queryProcess?.ExitCode == 0)
                 {
-                    Console.WriteLine("Scheduled task already exists.");
+                    Logger.Debug("Scheduled task {TaskName} already exists", taskName);
                     return;
                 }
             }
+
+            Logger.Information("Creating scheduled task {TaskName}", taskName);
 
             // Create XML for task definition
             var userName = $"{Environment.UserDomainName}\\{Environment.UserName}";
@@ -149,7 +171,7 @@ public class InstallerService
                               <?xml version="1.0" encoding="UTF-16"?>
                               <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
                                 <RegistrationInfo>
-                                  <Description>Starts DiscordScreenshareLoopbackShutup at user logon</Description>
+                                  <Description>Starts {Program.Name} at user logon</Description>
                                 </RegistrationInfo>
                                 <Triggers>
                                   <LogonTrigger>
@@ -185,7 +207,7 @@ public class InstallerService
                                 </Settings>
                                 <Actions Context="Author">
                                   <Exec>
-                                    <Command>{targetExePath}</Command>
+                                    <Command>{targetExePath} --scheduled</Command>
                                     <WorkingDirectory>{targetExePath.Parent!.Value}</WorkingDirectory>
                                   </Exec>
                                 </Actions>
@@ -214,13 +236,13 @@ public class InstallerService
 
                 if (createProcess?.ExitCode == 0)
                 {
-                    Console.WriteLine($"Created scheduled task: {taskName}");
+                    Logger.Information("Created scheduled task: {TaskName}", taskName);
                 }
                 else
                 {
                     var error = createProcess?.StandardError.ReadToEnd();
-                    Console.WriteLine(
-                        $"Failed to create scheduled task. Exit code: {createProcess?.ExitCode}, Error: {error}");
+                    Logger.Error("Failed to create scheduled task. Exit code: {ExitCode}, Error: {Error}",
+                        createProcess?.ExitCode, error);
                 }
             }
             finally
@@ -231,7 +253,7 @@ public class InstallerService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Failed to create scheduled task: {ex.Message}");
+            Logger.Error(ex, "Failed to create scheduled task");
         }
     }
 }

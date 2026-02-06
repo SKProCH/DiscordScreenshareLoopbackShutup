@@ -3,7 +3,7 @@
         <OutputType>WinExe</OutputType>
         <ApplicationIcon>Assets\DiscordScreenshareLoopbackShutup.ico</ApplicationIcon>
 
-        <TargetFramework>net9.0</TargetFramework>
+        <TargetFramework>net10.0</TargetFramework>
         <Nullable>enable</Nullable>
         <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
         <ApplicationManifest>app.manifest</ApplicationManifest>
@@ -11,14 +11,16 @@
 
         <PublishSingleFile>true</PublishSingleFile>
         <SelfContained>true</SelfContained>
-        <DebugType>None</DebugType>
-        <DebugSymbols>False</DebugSymbols>
         <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
         <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-
         <!--Seems like NAOT can't have bundled native libs-->
         <!--<PublishAot>true</PublishAot>-->
         <!--<IsAotCompatible>true</IsAotCompatible>-->
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Configuration)' != 'Debug'">
+        <DebugType>None</DebugType>
+        <DebugSymbols>False</DebugSymbols>
     </PropertyGroup>
 
     <ItemGroup>
@@ -37,12 +39,18 @@
         </PackageReference>
         <PackageReference Include="Avalonia.ReactiveUI" Version="11.2.1"/>
         <PackageReference Include="Material.Icons.Avalonia" Version="2.4.1"/>
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0"/>
+        <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0"/>
         <PackageReference Include="NAudio" Version="2.2.1"/>
         <PackageReference Include="Nito.AsyncEx" Version="5.1.2"/>
         <PackageReference Include="ReactiveUI.SourceGenerators" Version="2.4.1">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
+        <PackageReference Include="Serilog" Version="4.3.0"/>
+        <PackageReference Include="Serilog.Extensions.Logging" Version="9.0.2"/>
+        <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1"/>
+        <PackageReference Include="Serilog.Sinks.File" Version="7.0.0"/>
         <PackageReference Include="Tomlyn" Version="0.19.0"/>
         <PackageReference Include="TruePath" Version="1.10.0"/>
         <PackageReference Include="TruePath.SystemIo" Version="1.10.0"/>
