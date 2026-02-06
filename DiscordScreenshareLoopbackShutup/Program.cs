@@ -17,7 +17,7 @@ using TruePath;
 
 namespace DiscordScreenshareLoopbackShutup;
 
-sealed class Program
+internal sealed class Program
 {
     public static string Name => "DiscordScreenshareLoopbackShutup";
 
@@ -33,7 +33,6 @@ sealed class Program
         SetupLogging(configManager.Configuration);
         Log.Logger.Information("Application started: {Command}",
             string.Join(" ", args.Prepend(Environment.ProcessPath)));
-
         try
         {
             InstallerService.DoInstall();
@@ -92,11 +91,13 @@ sealed class Program
 
     // Avalonia configuration, don't remove; also used by visual designer.
     public static AppBuilder BuildAvaloniaApp()
-        => AppBuilder.Configure<App>()
+    {
+        return AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .WithInterFont()
             .LogToTrace()
             .UseReactiveUI();
+    }
 
     private static void WaitIpcSignal(EventWaitHandle evt)
     {

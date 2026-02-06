@@ -29,10 +29,7 @@ public class ShutupService
         _audioDeviceService.PropertyValueChanged += _ => EnumerateAndShutup();
         _audioDeviceService.DefaultDeviceChanged += (dataFlow, deviceRole, defaultDeviceId) =>
         {
-            if (dataFlow == DataFlow.Render && deviceRole == Role.Console)
-            {
-                SetDefaultOutputDevice(defaultDeviceId);
-            }
+            if (dataFlow == DataFlow.Render && deviceRole == Role.Console) SetDefaultOutputDevice(defaultDeviceId);
         };
 
         var defaultAudioEndpoint =
@@ -119,7 +116,7 @@ public class ShutupService
                 }
 
                 // ReSharper disable once InvertIf
-                if (name == "Discord")
+                if (name.StartsWith("Discord"))
                 {
                     if (session.SimpleAudioVolume.Mute != !isAllowed)
                     {
