@@ -119,7 +119,7 @@ public class ShutupService
                 }
 
                 // ReSharper disable once InvertIf
-                if (name == "Discord")
+                if (name.Contains("Discord"))
                 {
                     if (session.SimpleAudioVolume.Mute != !isAllowed)
                     {
