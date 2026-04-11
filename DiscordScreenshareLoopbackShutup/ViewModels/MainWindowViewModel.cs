@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using DiscordScreenshareLoopbackShutup.Models;
 using DiscordScreenshareLoopbackShutup.Models.Configurations;
+using DiscordScreenshareLoopbackShutup.Services;
 using Microsoft.Extensions.Logging;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;

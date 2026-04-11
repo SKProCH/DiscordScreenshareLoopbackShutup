@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 using NAudio.CoreAudioApi;
 using NAudio.CoreAudioApi.Interfaces;
 
-namespace DiscordScreenshareLoopbackShutup;
+namespace DiscordScreenshareLoopbackShutup.Services;
 
 public class AudioDeviceService : IMMNotificationClient, IDisposable
 {
