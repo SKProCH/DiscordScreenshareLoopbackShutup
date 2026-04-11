@@ -12,7 +12,7 @@
         Icon="/Assets/DiscordScreenshareLoopbackShutup.ico"
         Title="DiscordScreenshareLoopbackShutup"
         SizeToContent="WidthAndHeight" CanResize="False"
-        SystemDecorations="BorderOnly">
+        WindowDecorations="BorderOnly">
 
     <Window.Resources>
         <converters:AudioDeviceShutupStatusToMaterialIconConverter
