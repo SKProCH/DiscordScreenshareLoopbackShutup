@@ -5,13 +5,13 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.ReactiveUI;
 using Avalonia.Threading;
 using DiscordScreenshareLoopbackShutup.Models.Configurations;
 using DiscordScreenshareLoopbackShutup.Services;
 using DiscordScreenshareLoopbackShutup.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Nito.AsyncEx.Interop;
+using ReactiveUI.Avalonia;
 using Serilog;
 using TruePath;
 
@@ -96,7 +96,7 @@ internal sealed class Program
             .UsePlatformDetect()
             .WithInterFont()
             .LogToTrace()
-            .UseReactiveUI();
+            .UseReactiveUI(_ => { });
     }
 
     private static void WaitIpcSignal(EventWaitHandle evt)
