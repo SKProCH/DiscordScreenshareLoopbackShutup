@@ -14,7 +14,7 @@ namespace DiscordScreenshareLoopbackShutup.Services;
 public class ShutupService
 {
     private readonly AudioDeviceService _audioDeviceService;
-    private readonly ReplaySubject<IReadOnlyList<AudioDeviceShutupInformation>> _audioDevicesStatuses = new();
+    private readonly BehaviorSubject<IReadOnlyList<AudioDeviceShutupInformation>> _audioDevicesStatuses = new([]);
     private readonly ILogger<ShutupService> _logger;
     private string _defaultOutputDeviceId = string.Empty;
     private IDisposable? _deviceEventsDisposable;
