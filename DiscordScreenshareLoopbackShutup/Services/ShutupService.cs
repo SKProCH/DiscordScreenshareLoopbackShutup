@@ -12,7 +12,7 @@ using NAudio.CoreAudioApi.Interfaces;
 
 namespace DiscordScreenshareLoopbackShutup.Services;
 
-public class ShutupService
+public class ShutupService : IDisposable
 {
     private readonly AudioDeviceService _audioDeviceService;
     private readonly BehaviorSubject<IReadOnlyList<AudioDeviceShutupInformation>> _audioDevicesStatuses = new([]);
@@ -22,6 +22,7 @@ public class ShutupService
     private string _defaultOutputDeviceId = string.Empty;
     private IDisposable? _deviceEventsDisposable;
     private string? _discordOutputDeviceId = string.Empty;
+    private List<MMDevice> _subscribedDevices = [];
 
     public ShutupService(AudioDeviceService audioDeviceService, ILogger<ShutupService> logger)
     {
@@ -36,7 +37,7 @@ public class ShutupService
             if (dataFlow == DataFlow.Render && deviceRole == Role.Console) SetDefaultOutputDevice(defaultDeviceId);
         };
 
-        var defaultAudioEndpoint =
+        using var defaultAudioEndpoint =
             _audioDeviceService.DeviceEnumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Console);
         SetDefaultOutputDevice(defaultAudioEndpoint.ID);
         ReinitializeDeviceSubscriptions();
@@ -44,16 +45,36 @@ public class ShutupService
 
     public IObservable<IReadOnlyList<AudioDeviceShutupInformation>> AudioDevicesStatuses => _audioDevicesStatuses;
 
+    public void Dispose()
+    {
+        lock (_deviceEventsSync)
+        {
+            _deviceEventsDisposable?.Dispose();
+            _deviceEventsDisposable = null;
+            DisposeDevices(_subscribedDevices);
+            _subscribedDevices = [];
+        }
+
+        _audioDevicesStatuses.Dispose();
+    }
+
     private void ReinitializeDeviceSubscriptions()
     {
         lock (_deviceEventsSync)
         {
             _logger.LogInformation("Device list changed. Reinitializing devices sessions event listening");
 
+            var newDevices = new List<MMDevice>();
+            IDisposable? newSubscription = null;
+
             try
             {
-                var newSubscription = _audioDeviceService.DeviceEnumerator
+                var endpoints = _audioDeviceService.DeviceEnumerator
                     .EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active | DeviceState.Disabled)
+                    .ToList();
+                newDevices.AddRange(endpoints);
+
+                newSubscription = newDevices
                     .Select(device =>
                         Observable.FromEvent<AudioSessionManager.SessionCreatedDelegate, IAudioSessionControl>(
                             h => (_, session) => h(session),
@@ -65,11 +86,16 @@ public class ShutupService
                 // Subscribe first, then dispose the old listeners. This avoids a period
                 // where a newly created audio session cannot be observed.
                 var oldSubscription = _deviceEventsDisposable;
+                var oldDevices = _subscribedDevices;
                 _deviceEventsDisposable = newSubscription;
+                _subscribedDevices = newDevices;
                 oldSubscription?.Dispose();
+                DisposeDevices(oldDevices);
             }
             catch (Exception exception)
             {
+                newSubscription?.Dispose();
+                DisposeDevices(newDevices);
                 _logger.LogError(exception, "Failed to initialize audio session event listening");
             }
         }
@@ -112,7 +138,7 @@ public class ShutupService
     private void SetDefaultOutputDevice(string deviceId)
     {
         if (deviceId == _defaultOutputDeviceId) return;
-        var device = _audioDeviceService.DeviceEnumerator.GetDevice(deviceId);
+        using var device = _audioDeviceService.DeviceEnumerator.GetDevice(deviceId);
         _logger.LogInformation("Default output device changed to {DeviceName} ({DeviceId})",
             device.FriendlyName, deviceId);
         _defaultOutputDeviceId = deviceId;
@@ -122,7 +148,7 @@ public class ShutupService
     public void SetDiscordOutputDevice(string? deviceId)
     {
         if (deviceId == _discordOutputDeviceId) return;
-        var device = deviceId != null ? _audioDeviceService.DeviceEnumerator.GetDevice(deviceId) : null;
+        using var device = deviceId != null ? _audioDeviceService.DeviceEnumerator.GetDevice(deviceId) : null;
         _logger.LogInformation("Discord output device set to {DeviceName} ({DeviceId})",
             device?.FriendlyName, deviceId);
         _discordOutputDeviceId = deviceId;
@@ -139,6 +165,8 @@ public class ShutupService
 
             var information = new List<AudioDeviceShutupInformation>(endpoints.Count);
             foreach (var endpoint in endpoints)
+            {
+                using var device = endpoint;
                 try
                 {
                     var status = ProcessEndpoint(endpoint);
@@ -148,6 +176,7 @@ public class ShutupService
                 {
                     _logger.LogWarning(exception, "Failed to process audio endpoint {DeviceId}", endpoint.ID);
                 }
+            }
 
             _audioDevicesStatuses.OnNext(information);
         }
@@ -162,7 +191,7 @@ public class ShutupService
             {
                 try
                 {
-                    var session = sessions[i];
+                    using var session = sessions[i];
                     var name = session.DisplayName;
                     if (string.IsNullOrEmpty(name) && session.GetProcessID > 0)
                         try
@@ -206,5 +235,11 @@ public class ShutupService
                 (_, false) => ShutupStatus.None
             };
         }
+    }
+
+    private static void DisposeDevices(IEnumerable<MMDevice> devices)
+    {
+        foreach (var device in devices)
+            device.Dispose();
     }
 }
