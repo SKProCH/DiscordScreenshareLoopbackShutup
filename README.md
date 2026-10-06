@@ -6,6 +6,8 @@ don’t hear Discord twice (or hear themselves) when you share audio.
 
 <img width="414" height="336" alt="image" src="https://github.com/user-attachments/assets/191e29d4-82d9-4961-a379-0d38d82cb3c1" />
 
+Find this app useful? Consider starring this repository.
+
 ## Use case
 
 E.g. If you use Voicemeeter, route discord audio to one of voicemeeter's virtual outputs, and inside voicemeeter route
@@ -95,7 +97,7 @@ Changing devices
 
 Prerequisites
 
-- .NET SDK 9.0
+- .NET SDK 10.0
 - Windows 10/11 for running/testing
 
 Build and publish (single‑file, self‑contained):
