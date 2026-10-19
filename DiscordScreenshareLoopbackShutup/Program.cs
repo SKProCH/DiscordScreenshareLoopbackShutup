@@ -65,6 +65,8 @@ internal sealed class Program
         finally
         {
             Log.Logger.Information("Application shutdown");
+            if (Services is IDisposable services)
+                services.Dispose();
             Log.CloseAndFlush();
         }
     }

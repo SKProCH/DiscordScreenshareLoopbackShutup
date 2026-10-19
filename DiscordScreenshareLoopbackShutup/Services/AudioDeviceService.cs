@@ -30,6 +30,7 @@ public class AudioDeviceService : IMMNotificationClient, IDisposable
     public void Dispose()
     {
         DeviceEnumerator.UnregisterEndpointNotificationCallback(this);
+        DeviceEnumerator.Dispose();
     }
 
     /// <summary>
