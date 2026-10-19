@@ -56,9 +56,7 @@ public sealed class ShutupService : IDisposable
         if (deviceId == _discordOutputDeviceId)
             return;
 
-        using var device = deviceId != null ? _audioDeviceService.DeviceEnumerator.GetDevice(deviceId) : null;
-        _logger.LogInformation("Discord output device set to {DeviceName} ({DeviceId})",
-            device?.FriendlyName, deviceId);
+        _logger.LogInformation("Discord output device set to {DeviceId}", deviceId);
 
         _discordOutputDeviceId = deviceId;
         RefreshStatusesSafely();
