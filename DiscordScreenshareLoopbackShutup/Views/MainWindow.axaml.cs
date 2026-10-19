@@ -10,6 +10,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         Deactivated += OnDeactivated;
+        LayoutUpdated += OnLayoutUpdated;
     }
 
     private void OnDeactivated(object? sender, EventArgs e)
@@ -20,12 +21,27 @@ public partial class MainWindow : Window
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
-        Measure(Size.Infinity);
-        var screen = Screens.ScreenFromWindow(this)!;
-        var x = screen.WorkingArea.Width - Bounds.Width * screen.Scaling;
-        x -= x / 10;
-        var y = screen.WorkingArea.Height - Bounds.Height * screen.Scaling;
+        UpdatePosition();
+    }
 
-        Position = new PixelPoint((int)x, (int)y);
+    private void OnLayoutUpdated(object? sender, EventArgs e)
+    {
+        if (IsVisible)
+            UpdatePosition();
+    }
+
+    private void UpdatePosition()
+    {
+        var screen = Screens.ScreenFromWindow(this);
+        if (screen is null)
+            return;
+
+        var workingArea = screen.WorkingArea;
+        var remainingWidth = workingArea.Width - Bounds.Width * screen.Scaling;
+        var x = workingArea.X + remainingWidth * 0.9;
+        var y = workingArea.Bottom - Bounds.Height * screen.Scaling;
+        var position = new PixelPoint((int)x, (int)y);
+        if (Position != position)
+            Position = position;
     }
 }
