@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -12,7 +12,7 @@ using NAudio.CoreAudioApi.Interfaces;
 
 namespace DiscordScreenshareLoopbackShutup.Services;
 
-public class ShutupService : IDisposable
+public sealed class ShutupService : IDisposable
 {
     private readonly AudioDeviceService _audioDeviceService;
     private readonly BehaviorSubject<IReadOnlyList<AudioDeviceShutupInformation>> _audioDevicesStatuses = new([]);
@@ -20,114 +20,172 @@ public class ShutupService : IDisposable
     private readonly Lock _enumerationSync = new();
     private readonly ILogger<ShutupService> _logger;
     private string _defaultOutputDeviceId = string.Empty;
-    private IDisposable? _deviceEventsDisposable;
-    private string? _discordOutputDeviceId = string.Empty;
-    private List<MMDevice> _subscribedDevices = [];
+    private string? _discordOutputDeviceId;
+    private AudioSessionSubscriptionSet? _sessionSubscriptions;
 
     public ShutupService(AudioDeviceService audioDeviceService, ILogger<ShutupService> logger)
     {
-        _logger = logger;
         _audioDeviceService = audioDeviceService;
-        _audioDeviceService.DeviceAdded += _ => ReinitializeDeviceSubscriptions();
-        _audioDeviceService.DeviceRemoved += _ => ReinitializeDeviceSubscriptions();
-        _audioDeviceService.DeviceStateChanged += (_, _) => ReinitializeDeviceSubscriptions();
-        _audioDeviceService.PropertyValueChanged += _ => SafeEnumerateAndShutup();
-        _audioDeviceService.DefaultDeviceChanged += (dataFlow, deviceRole, defaultDeviceId) =>
-        {
-            if (dataFlow == DataFlow.Render && deviceRole == Role.Console) SetDefaultOutputDevice(defaultDeviceId);
-        };
+        _logger = logger;
+
+        SubscribeToDeviceEvents();
 
         using var defaultAudioEndpoint =
             _audioDeviceService.DeviceEnumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Console);
         SetDefaultOutputDevice(defaultAudioEndpoint.ID);
-        ReinitializeDeviceSubscriptions();
+        RebuildSessionSubscriptions();
     }
 
     public IObservable<IReadOnlyList<AudioDeviceShutupInformation>> AudioDevicesStatuses => _audioDevicesStatuses;
 
     public void Dispose()
     {
+        UnsubscribeFromDeviceEvents();
+
         lock (_deviceEventsSync)
         {
-            _deviceEventsDisposable?.Dispose();
-            _deviceEventsDisposable = null;
-            DisposeDevices(_subscribedDevices);
-            _subscribedDevices = [];
+            _sessionSubscriptions?.Dispose();
+            _sessionSubscriptions = null;
         }
 
         _audioDevicesStatuses.Dispose();
     }
 
-    private void ReinitializeDeviceSubscriptions()
+    public void SetDiscordOutputDevice(string? deviceId)
+    {
+        if (deviceId == _discordOutputDeviceId)
+            return;
+
+        using var device = deviceId != null ? _audioDeviceService.DeviceEnumerator.GetDevice(deviceId) : null;
+        _logger.LogInformation("Discord output device set to {DeviceName} ({DeviceId})",
+            device?.FriendlyName, deviceId);
+
+        _discordOutputDeviceId = deviceId;
+        RefreshStatusesSafely();
+    }
+
+    private void SubscribeToDeviceEvents()
+    {
+        _audioDeviceService.DeviceAdded += OnDeviceAdded;
+        _audioDeviceService.DeviceRemoved += OnDeviceRemoved;
+        _audioDeviceService.DeviceStateChanged += OnDeviceStateChanged;
+        _audioDeviceService.PropertyValueChanged += OnPropertyValueChanged;
+        _audioDeviceService.DefaultDeviceChanged += OnDefaultDeviceChanged;
+    }
+
+    private void UnsubscribeFromDeviceEvents()
+    {
+        _audioDeviceService.DeviceAdded -= OnDeviceAdded;
+        _audioDeviceService.DeviceRemoved -= OnDeviceRemoved;
+        _audioDeviceService.DeviceStateChanged -= OnDeviceStateChanged;
+        _audioDeviceService.PropertyValueChanged -= OnPropertyValueChanged;
+        _audioDeviceService.DefaultDeviceChanged -= OnDefaultDeviceChanged;
+    }
+
+    private void OnDeviceAdded(string _)
+    {
+        RebuildSessionSubscriptions();
+    }
+
+    private void OnDeviceRemoved(string _)
+    {
+        RebuildSessionSubscriptions();
+    }
+
+    private void OnDeviceStateChanged(string _, DeviceState __)
+    {
+        RebuildSessionSubscriptions();
+    }
+
+    private void OnPropertyValueChanged(string _)
+    {
+        RefreshStatusesSafely();
+    }
+
+    private void OnDefaultDeviceChanged(DataFlow dataFlow, Role deviceRole, string deviceId)
+    {
+        if (dataFlow == DataFlow.Render && deviceRole == Role.Console)
+            SetDefaultOutputDevice(deviceId);
+    }
+
+    private void RebuildSessionSubscriptions()
     {
         lock (_deviceEventsSync)
         {
-            _logger.LogInformation("Device list changed. Reinitializing devices sessions event listening");
-
-            var newDevices = new List<MMDevice>();
-            IDisposable? newSubscription = null;
+            _logger.LogInformation("Device list changed. Rebuilding audio session subscriptions");
 
             try
             {
-                var endpoints = _audioDeviceService.DeviceEnumerator
-                    .EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active | DeviceState.Disabled)
-                    .ToList();
-                newDevices.AddRange(endpoints);
+                var replacement = AudioSessionSubscriptionSet.Create(
+                    _audioDeviceService.DeviceEnumerator,
+                    OnSessionCreated,
+                    OnSessionSubscriptionError);
 
-                newSubscription = newDevices
-                    .Select(device =>
-                        Observable.FromEvent<AudioSessionManager.SessionCreatedDelegate, IAudioSessionControl>(
-                            h => (_, session) => h(session),
-                            action => device.AudioSessionManager.OnSessionCreated += action,
-                            action => device.AudioSessionManager.OnSessionCreated -= action))
-                    .Merge()
-                    .Subscribe(SafeOnSessionCreated, OnDeviceEventsError);
-
-                // Subscribe first, then dispose the old listeners. This avoids a period
-                // where a newly created audio session cannot be observed.
-                var oldSubscription = _deviceEventsDisposable;
-                var oldDevices = _subscribedDevices;
-                _deviceEventsDisposable = newSubscription;
-                _subscribedDevices = newDevices;
-                oldSubscription?.Dispose();
-                DisposeDevices(oldDevices);
+                var previous = _sessionSubscriptions;
+                _sessionSubscriptions = replacement;
+                previous?.Dispose();
             }
             catch (Exception exception)
             {
-                newSubscription?.Dispose();
-                DisposeDevices(newDevices);
                 _logger.LogError(exception, "Failed to initialize audio session event listening");
             }
         }
 
-        SafeEnumerateAndShutup();
+        RefreshStatusesSafely();
     }
 
-    private void OnDeviceEventsError(Exception exception)
+    private void OnSessionSubscriptionError(Exception exception)
     {
-        _logger.LogError(exception, "Audio session event subscription failed; rebuilding subscriptions");
-        ReinitializeDeviceSubscriptions();
+        _logger.LogError(exception, "Audio session subscription failed; rebuilding subscriptions");
+        RebuildSessionSubscriptions();
     }
 
-    private void SafeOnSessionCreated(IAudioSessionControl session)
+    private void OnSessionCreated(IAudioSessionControl _)
+    {
+        _logger.LogInformation("New audio session created, checking for Discord");
+        RefreshStatusesSafely();
+    }
+
+    private void SetDefaultOutputDevice(string deviceId)
+    {
+        if (deviceId == _defaultOutputDeviceId)
+            return;
+
+        using var device = _audioDeviceService.DeviceEnumerator.GetDevice(deviceId);
+        _logger.LogInformation("Default output device changed to {DeviceName} ({DeviceId})",
+            device.FriendlyName, deviceId);
+
+        _defaultOutputDeviceId = deviceId;
+        RefreshStatusesSafely();
+    }
+
+    private void RefreshStatusesSafely()
     {
         try
         {
-            _logger.LogInformation("New audio session created, checking for discord");
-            EnumerateAndShutup();
-        }
-        catch (Exception exception)
-        {
-            // A stale MMDevice/IAudioSessionControl must not terminate the Rx subscription.
-            _logger.LogError(exception, "Failed to process newly created audio session");
-        }
-    }
+            lock (_enumerationSync)
+            {
+                _logger.LogInformation("Enumerating devices, finding Discord");
 
-    private void SafeEnumerateAndShutup()
-    {
-        try
-        {
-            EnumerateAndShutup();
+                var endpoints = _audioDeviceService.DeviceEnumerator
+                    .EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active);
+                var statuses = new List<AudioDeviceShutupInformation>(endpoints.Count);
+
+                foreach (var endpoint in endpoints)
+                    using (endpoint)
+                    {
+                        try
+                        {
+                            statuses.Add(InspectDevice(endpoint));
+                        }
+                        catch (Exception exception)
+                        {
+                            _logger.LogWarning(exception, "Failed to process audio endpoint {DeviceId}", endpoint.ID);
+                        }
+                    }
+
+                _audioDevicesStatuses.OnNext(statuses);
+            }
         }
         catch (Exception exception)
         {
@@ -135,111 +193,130 @@ public class ShutupService : IDisposable
         }
     }
 
-    private void SetDefaultOutputDevice(string deviceId)
+    private AudioDeviceShutupInformation InspectDevice(MMDevice device)
     {
-        if (deviceId == _defaultOutputDeviceId) return;
-        using var device = _audioDeviceService.DeviceEnumerator.GetDevice(deviceId);
-        _logger.LogInformation("Default output device changed to {DeviceName} ({DeviceId})",
-            device.FriendlyName, deviceId);
-        _defaultOutputDeviceId = deviceId;
-        SafeEnumerateAndShutup();
-    }
+        var isAllowed = IsAllowedDevice(device);
+        var discordFound = false;
+        var sessions = device.AudioSessionManager.Sessions;
 
-    public void SetDiscordOutputDevice(string? deviceId)
-    {
-        if (deviceId == _discordOutputDeviceId) return;
-        using var device = deviceId != null ? _audioDeviceService.DeviceEnumerator.GetDevice(deviceId) : null;
-        _logger.LogInformation("Discord output device set to {DeviceName} ({DeviceId})",
-            device?.FriendlyName, deviceId);
-        _discordOutputDeviceId = deviceId;
-        SafeEnumerateAndShutup();
-    }
-
-    private void EnumerateAndShutup()
-    {
-        lock (_enumerationSync)
-        {
-            _logger.LogInformation("Enumerating devices, finding discord");
-            var endpoints = _audioDeviceService.DeviceEnumerator
-                .EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active);
-
-            var information = new List<AudioDeviceShutupInformation>(endpoints.Count);
-            foreach (var endpoint in endpoints)
+        for (var i = 0; i < sessions.Count; i++)
+            try
             {
-                using var device = endpoint;
-                try
-                {
-                    var status = ProcessEndpoint(endpoint);
-                    information.Add(new AudioDeviceShutupInformation(endpoint.ID, endpoint.FriendlyName, status));
-                }
-                catch (Exception exception)
-                {
-                    _logger.LogWarning(exception, "Failed to process audio endpoint {DeviceId}", endpoint.ID);
-                }
+                using var session = sessions[i];
+                if (!TryGetSessionName(session, out var name) ||
+                    !name.StartsWith("Discord", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                SetMuteState(session, device, isAllowed);
+                discordFound = true;
+            }
+            catch (Exception exception)
+            {
+                _logger.LogDebug(exception, "Failed to inspect an audio session on {DeviceId}", device.ID);
             }
 
-            _audioDevicesStatuses.OnNext(information);
+        var status = (isAllowed, discordFound) switch
+        {
+            (true, _) => ShutupStatus.ValidOutput,
+            (_, true) => ShutupStatus.Muted,
+            (_, false) => ShutupStatus.None
+        };
+
+        return new AudioDeviceShutupInformation(device.ID, device.FriendlyName, status);
+    }
+
+    private bool IsAllowedDevice(MMDevice device)
+    {
+        return device.ID == _discordOutputDeviceId || device.ID == _defaultOutputDeviceId;
+    }
+
+    private bool TryGetSessionName(AudioSessionControl session, out string name)
+    {
+        name = session.DisplayName;
+        if (!string.IsNullOrEmpty(name))
+            return true;
+
+        if (session.GetProcessID == 0)
+            return false;
+
+        try
+        {
+            using var process = Process.GetProcessById((int)session.GetProcessID);
+            name = process.ProcessName;
+            return true;
         }
-
-        ShutupStatus ProcessEndpoint(MMDevice endpoint)
+        catch (ArgumentException)
         {
-            var isAllowed = endpoint.ID == _discordOutputDeviceId || endpoint.ID == _defaultOutputDeviceId;
-
-            var discordFound = false;
-            var sessions = endpoint.AudioSessionManager.Sessions;
-            for (var i = 0; i < sessions.Count; i++)
-            {
-                try
-                {
-                    using var session = sessions[i];
-                    var name = session.DisplayName;
-                    if (string.IsNullOrEmpty(name) && session.GetProcessID > 0)
-                        try
-                        {
-                            using var process = Process.GetProcessById((int)session.GetProcessID);
-                            name = process.ProcessName;
-                        }
-                        catch (ArgumentException)
-                        {
-                            continue;
-                        }
-                        catch (InvalidOperationException)
-                        {
-                            continue;
-                        }
-
-                    // ReSharper disable once InvertIf
-                    if (name.StartsWith("Discord", StringComparison.OrdinalIgnoreCase))
-                    {
-                        if (session.SimpleAudioVolume.Mute != !isAllowed)
-                        {
-                            _logger.LogInformation(
-                                "New Discord session detected on {DeviceName} ({DeviceId}), muted: {IsMuted}",
-                                endpoint.FriendlyName, endpoint.ID, !isAllowed);
-                            session.SimpleAudioVolume.Mute = !isAllowed;
-                        }
-
-                        discordFound = true;
-                    }
-                }
-                catch (Exception exception)
-                {
-                    _logger.LogDebug(exception, "Failed to inspect an audio session on {DeviceId}", endpoint.ID);
-                }
-            }
-
-            return (isAllowed, discordFound) switch
-            {
-                (true, _) => ShutupStatus.ValidOutput,
-                (_, true) => ShutupStatus.Muted,
-                (_, false) => ShutupStatus.None
-            };
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
         }
     }
 
-    private static void DisposeDevices(IEnumerable<MMDevice> devices)
+    private void SetMuteState(AudioSessionControl session, MMDevice device, bool isAllowed)
     {
-        foreach (var device in devices)
-            device.Dispose();
+        var shouldMute = !isAllowed;
+        if (session.SimpleAudioVolume.Mute == shouldMute)
+            return;
+
+        _logger.LogInformation(
+            "New Discord session detected on {DeviceName} ({DeviceId}), muted: {IsMuted}",
+            device.FriendlyName, device.ID, shouldMute);
+        session.SimpleAudioVolume.Mute = shouldMute;
+    }
+
+    private sealed class AudioSessionSubscriptionSet : IDisposable
+    {
+        private readonly IReadOnlyList<MMDevice> _devices;
+        private readonly IDisposable _subscription;
+
+        private AudioSessionSubscriptionSet(IReadOnlyList<MMDevice> devices, IDisposable subscription)
+        {
+            _devices = devices;
+            _subscription = subscription;
+        }
+
+        public void Dispose()
+        {
+            _subscription.Dispose();
+            DisposeDevices(_devices);
+        }
+
+        public static AudioSessionSubscriptionSet Create(
+            MMDeviceEnumerator deviceEnumerator,
+            Action<IAudioSessionControl> onSessionCreated,
+            Action<Exception> onError)
+        {
+            var devices = deviceEnumerator
+                .EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active | DeviceState.Disabled)
+                .ToList();
+
+            try
+            {
+                var subscription = devices
+                    .Select(device =>
+                        Observable.FromEvent<AudioSessionManager.SessionCreatedDelegate, IAudioSessionControl>(
+                            handler => (_, session) => handler(session),
+                            handler => device.AudioSessionManager.OnSessionCreated += handler,
+                            handler => device.AudioSessionManager.OnSessionCreated -= handler))
+                    .Merge()
+                    .Subscribe(onSessionCreated, onError);
+
+                return new AudioSessionSubscriptionSet(devices, subscription);
+            }
+            catch
+            {
+                DisposeDevices(devices);
+                throw;
+            }
+        }
+
+        private static void DisposeDevices(IEnumerable<MMDevice> devices)
+        {
+            foreach (var device in devices)
+                device.Dispose();
+        }
     }
 }
