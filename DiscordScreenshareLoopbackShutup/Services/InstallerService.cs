@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using Serilog;
 using TruePath;
@@ -39,26 +38,7 @@ public class InstallerService
 
         Logger.Information("Starting installation from {CurrentPath} to {TargetFolder}", currentExePath, targetFolder);
 
-        // Check if a copy is already running from the target folder
-        var currentProcess = Process.GetCurrentProcess();
-        var existingProcesses = Process.GetProcessesByName(currentProcess.ProcessName)
-            .Where(p => p.Id != currentProcess.Id && targetExePath == new AbsolutePath(p.MainModule?.FileName!));
-
-        // Kill existing processes from target folder
-        foreach (var process in existingProcesses)
-            try
-            {
-                Logger.Information("Killing existing process {ProcessId}", process.Id);
-                process.Kill();
-                process.WaitForExit(5000);
-            }
-            catch (Exception ex)
-            {
-                Logger.Error(ex, "Failed to kill process {ProcessId}", process.Id);
-            }
-
-        // Wait a bit to ensure file is unlocked
-        Thread.Sleep(100);
+        StopInstalledProcesses(targetExePath);
 
         targetFolder.CreateDirectory();
 
@@ -83,6 +63,42 @@ public class InstallerService
         Logger.Information("Installation completed, starting new process");
         Process.Start(targetExePath.ToString());
         Thread.Sleep(500);
+    }
+
+    private static void StopInstalledProcesses(AbsolutePath targetExePath)
+    {
+        var processes = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(targetExePath.ToString()));
+        foreach (var process in processes)
+        {
+            if (process.Id == Environment.ProcessId)
+                continue;
+
+            try
+            {
+                if (process.HasExited)
+                    continue;
+
+                var executablePath = process.MainModule?.FileName;
+                if (executablePath == null)
+                    throw new InvalidOperationException($"Cannot determine executable path for process {process.Id}");
+
+                if (targetExePath != new AbsolutePath(executablePath))
+                    continue;
+
+                Logger.Information("Killing existing process {ProcessId}", process.Id);
+                process.Kill();
+                if (!process.WaitForExit(5000))
+                    throw new TimeoutException($"Process {process.Id} did not exit within 5 seconds");
+            }
+            catch (Exception ex)
+            {
+                if (process.HasExited)
+                    continue;
+
+                Logger.Error(ex, "Failed to stop installed process {ProcessId}", process.Id);
+                throw;
+            }
+        }
     }
 
     private static void CreateStartMenuShortcut(AbsolutePath targetExePath)
