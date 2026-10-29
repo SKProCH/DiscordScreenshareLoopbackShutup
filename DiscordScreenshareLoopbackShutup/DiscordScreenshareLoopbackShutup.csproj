@@ -3,7 +3,7 @@
         <OutputType>WinExe</OutputType>
         <ApplicationIcon>Assets\DiscordScreenshareLoopbackShutup.ico</ApplicationIcon>
 
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net10.0-windows</TargetFramework>
         <Nullable>enable</Nullable>
         <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
         <ApplicationManifest>app.manifest</ApplicationManifest>
@@ -28,31 +28,31 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Avalonia" Version="12.0.0"/>
-        <PackageReference Include="Avalonia.Desktop" Version="12.0.0"/>
-        <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.0"/>
-        <PackageReference Include="Avalonia.Fonts.Inter" Version="12.0.0"/>
+        <PackageReference Include="Avalonia" Version="12.1.4"/>
+        <PackageReference Include="Avalonia.Desktop" Version="12.1.4"/>
+        <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.4"/>
+        <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.4"/>
         <!--Condition below is needed to remove AvaloniaUI.DiagnosticsSupport package from build output in Release configuration.-->
-        <PackageReference Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.0">
+        <PackageReference Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3">
             <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
             <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
         </PackageReference>
-        <PackageReference Include="ReactiveUI.Avalonia" Version="11.4.12"/>
-        <PackageReference Include="Material.Icons.Avalonia" Version="3.0.1"/>
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.2"/>
-        <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.2"/>
-        <PackageReference Include="NAudio" Version="2.2.1"/>
+        <PackageReference Include="Material.Icons.Avalonia" Version="3.0.2"/>
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.14"/>
+        <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.14"/>
+        <PackageReference Include="NAudio" Version="3.3.0"/>
         <PackageReference Include="Nito.AsyncEx" Version="5.1.2"/>
-        <PackageReference Include="ReactiveUI.SourceGenerators" Version="2.6.1">
+        <PackageReference Include="ReactiveUI.Avalonia" Version="12.1.6"/>
+        <PackageReference Include="ReactiveUI.SourceGenerators" Version="4.2.0">
             <PrivateAssets>all</PrivateAssets>
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Serilog" Version="4.3.1-dev-02406"/>
+        <PackageReference Include="Serilog" Version="4.4.0"/>
         <PackageReference Include="Serilog.Extensions.Logging" Version="10.0.0"/>
         <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1"/>
         <PackageReference Include="Serilog.Sinks.File" Version="8.0.0-dev-02318"/>
-        <PackageReference Include="Tomlyn" Version="0.20.0"/>
-        <PackageReference Include="TruePath" Version="1.11.0"/>
-        <PackageReference Include="TruePath.SystemIo" Version="1.11.0"/>
+        <PackageReference Include="System.Reactive" Version="7.0.0"/>
+        <PackageReference Include="Tomlyn" Version="2.10.1"/>
+        <PackageReference Include="TruePath" Version="2.0.0"/>
+        <PackageReference Include="TruePath.SystemIo" Version="2.0.0"/>
     </ItemGroup>
 </Project>

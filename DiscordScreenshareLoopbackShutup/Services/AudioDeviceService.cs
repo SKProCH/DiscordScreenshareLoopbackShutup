@@ -1,11 +1,10 @@
 using System;
 using Microsoft.Extensions.Logging;
 using NAudio.CoreAudioApi;
-using NAudio.CoreAudioApi.Interfaces;
 
 namespace DiscordScreenshareLoopbackShutup.Services;
 
-public class AudioDeviceService : IMMNotificationClient, IDisposable
+public class AudioDeviceService : IDisposable
 {
     public delegate void DefaultDeviceChangedHandler(DataFlow dataFlow, Role deviceRole, string defaultDeviceId);
 
@@ -18,18 +17,26 @@ public class AudioDeviceService : IMMNotificationClient, IDisposable
     public delegate void PropertyValueChangedHandler(string deviceId);
 
     private readonly ILogger<AudioDeviceService> _logger;
+    private readonly MMDeviceNotificationClient _notificationClient;
 
     public AudioDeviceService(ILogger<AudioDeviceService> logger)
     {
         _logger = logger;
-        DeviceEnumerator.RegisterEndpointNotificationCallback(this);
+        _notificationClient = DeviceEnumerator.CreateNotificationClient();
+        _notificationClient.DefaultDeviceChanged += (_, args) =>
+            OnDefaultDeviceChanged(args.Flow, args.Role, args.DeviceId ?? string.Empty);
+        _notificationClient.DeviceAdded += (_, args) => OnDeviceAdded(args.DeviceId);
+        _notificationClient.DeviceRemoved += (_, args) => OnDeviceRemoved(args.DeviceId);
+        _notificationClient.DeviceStateChanged += (_, args) => OnDeviceStateChanged(args.DeviceId, args.NewState);
+        _notificationClient.PropertyValueChanged +=
+            (_, args) => OnPropertyValueChanged(args.DeviceId, args.PropertyKey);
     }
 
     public MMDeviceEnumerator DeviceEnumerator { get; } = new();
 
     public void Dispose()
     {
-        DeviceEnumerator.UnregisterEndpointNotificationCallback(this);
+        _notificationClient.Dispose();
         DeviceEnumerator.Dispose();
     }
 

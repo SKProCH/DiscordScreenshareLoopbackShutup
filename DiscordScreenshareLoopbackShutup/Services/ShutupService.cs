@@ -9,7 +9,6 @@ using System.Threading;
 using DiscordScreenshareLoopbackShutup.Models;
 using Microsoft.Extensions.Logging;
 using NAudio.CoreAudioApi;
-using NAudio.CoreAudioApi.Interfaces;
 
 namespace DiscordScreenshareLoopbackShutup.Services;
 
@@ -137,7 +136,7 @@ public sealed class ShutupService : IDisposable
         RebuildSessionSubscriptions();
     }
 
-    private void OnSessionCreated(IAudioSessionControl _)
+    private void OnSessionCreated(AudioSessionControl _)
     {
         _logger.LogInformation("New audio session created, checking for Discord");
         RefreshStatusesSafely();
@@ -305,7 +304,7 @@ public sealed class ShutupService : IDisposable
 
         public static AudioSessionSubscriptionSet Create(
             MMDeviceEnumerator deviceEnumerator,
-            Action<IAudioSessionControl> onSessionCreated,
+            Action<AudioSessionControl> onSessionCreated,
             Action<Exception> onError)
         {
             var devices = deviceEnumerator
@@ -316,7 +315,7 @@ public sealed class ShutupService : IDisposable
             {
                 var subscription = devices
                     .Select(device =>
-                        Observable.FromEvent<AudioSessionManager.SessionCreatedDelegate, IAudioSessionControl>(
+                        Observable.FromEvent<AudioSessionManager.SessionCreatedDelegate, AudioSessionControl>(
                             handler => (_, session) => handler(session),
                             handler => device.AudioSessionManager.OnSessionCreated += handler,
                             handler => device.AudioSessionManager.OnSessionCreated -= handler))

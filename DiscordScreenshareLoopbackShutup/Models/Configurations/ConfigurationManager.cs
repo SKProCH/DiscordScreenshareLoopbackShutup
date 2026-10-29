@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text.Json;
 using Tomlyn;
 using TruePath;
 
@@ -7,6 +8,11 @@ namespace DiscordScreenshareLoopbackShutup.Models.Configurations;
 
 public class ConfigurationManager
 {
+    private static readonly TomlSerializerOptions SerializerOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+    };
+
     private readonly AbsolutePath _configurationPath;
     private readonly Configuration _currentConfiguration;
 
@@ -26,7 +32,7 @@ public class ConfigurationManager
 
     private void Save()
     {
-        var tomlText = Toml.FromModel(_currentConfiguration);
+        var tomlText = TomlSerializer.Serialize(_currentConfiguration, SerializerOptions);
         File.WriteAllText(_configurationPath.ToString(), tomlText);
     }
 
@@ -37,7 +43,7 @@ public class ConfigurationManager
             if (!File.Exists(_configurationPath.ToString())) return null;
 
             var configText = File.ReadAllText(_configurationPath.ToString());
-            return Toml.ToModel<Configuration>(configText);
+            return TomlSerializer.Deserialize<Configuration>(configText, SerializerOptions);
         }
         catch (Exception)
         {
