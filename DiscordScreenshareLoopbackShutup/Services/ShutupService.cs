@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using System.Runtime.InteropServices;
 using System.Threading;
 using DiscordScreenshareLoopbackShutup.Models;
 using Microsoft.Extensions.Logging;
@@ -30,9 +31,7 @@ public sealed class ShutupService : IDisposable
 
         SubscribeToDeviceEvents();
 
-        using var defaultAudioEndpoint =
-            _audioDeviceService.DeviceEnumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Console);
-        SetDefaultOutputDevice(defaultAudioEndpoint.ID);
+        RefreshDefaultOutputDevice();
         RebuildSessionSubscriptions();
     }
 
@@ -103,7 +102,7 @@ public sealed class ShutupService : IDisposable
     private void OnDefaultDeviceChanged(DataFlow dataFlow, Role deviceRole, string deviceId)
     {
         if (dataFlow == DataFlow.Render && deviceRole == Role.Console)
-            SetDefaultOutputDevice(deviceId);
+            RefreshDefaultOutputDevice();
     }
 
     private void RebuildSessionSubscriptions()
@@ -144,14 +143,36 @@ public sealed class ShutupService : IDisposable
         RefreshStatusesSafely();
     }
 
+    private void RefreshDefaultOutputDevice()
+    {
+        try
+        {
+            using var device = _audioDeviceService.DeviceEnumerator
+                .GetDefaultAudioEndpoint(DataFlow.Render, Role.Console);
+            SetDefaultOutputDevice(device.ID);
+        }
+        catch (COMException exception) when (exception.HResult == unchecked((int)0x80070490))
+        {
+            _logger.LogInformation("No default output device is available; waiting for device changes");
+            SetDefaultOutputDevice(string.Empty);
+        }
+    }
+
     private void SetDefaultOutputDevice(string deviceId)
     {
         if (deviceId == _defaultOutputDeviceId)
             return;
 
-        using var device = _audioDeviceService.DeviceEnumerator.GetDevice(deviceId);
-        _logger.LogInformation("Default output device changed to {DeviceName} ({DeviceId})",
-            device.FriendlyName, deviceId);
+        if (string.IsNullOrEmpty(deviceId))
+        {
+            _logger.LogInformation("Default output device is unavailable");
+        }
+        else
+        {
+            using var device = _audioDeviceService.DeviceEnumerator.GetDevice(deviceId);
+            _logger.LogInformation("Default output device changed to {DeviceName} ({DeviceId})",
+                device.FriendlyName, deviceId);
+        }
 
         _defaultOutputDeviceId = deviceId;
         RefreshStatusesSafely();
