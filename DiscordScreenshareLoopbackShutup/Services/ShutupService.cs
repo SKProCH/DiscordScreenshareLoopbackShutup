@@ -163,7 +163,16 @@ public sealed class ShutupService : IDisposable
         if (deviceId == _defaultOutputDeviceId)
             return;
 
-        _logger.LogInformation("Default output device changed to {DeviceId}", deviceId);
+        if (string.IsNullOrEmpty(deviceId))
+        {
+            _logger.LogInformation("Default output device is unavailable");
+        }
+        else
+        {
+            using var device = _audioDeviceService.DeviceEnumerator.GetDevice(deviceId);
+            _logger.LogInformation("Default output device changed to {DeviceName} ({DeviceId})",
+                device.FriendlyName, deviceId);
+        }
 
         _defaultOutputDeviceId = deviceId;
         RefreshStatusesSafely();
