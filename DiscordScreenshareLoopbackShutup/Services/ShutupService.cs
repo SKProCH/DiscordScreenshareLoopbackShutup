@@ -136,10 +136,22 @@ public sealed class ShutupService : IDisposable
         RebuildSessionSubscriptions();
     }
 
-    private void OnSessionCreated(AudioSessionControl _)
+    private void OnSessionCreated(AudioSessionControl session)
     {
-        _logger.LogInformation("New audio session created, checking for Discord");
-        RefreshStatusesSafely();
+        try
+        {
+            if (!TryGetSessionName(session, out var name) ||
+                !name.StartsWith("Discord", StringComparison.OrdinalIgnoreCase))
+                return;
+
+            _logger.LogInformation("New Discord audio session created");
+            RefreshStatusesSafely();
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "Failed to inspect a new audio session. Enumerating all");
+            RefreshStatusesSafely();
+        }
     }
 
     private void RefreshDefaultOutputDevice()
